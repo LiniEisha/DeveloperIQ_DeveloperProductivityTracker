@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-deployment
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: commitservice
+          image: 818005967106.dkr.ecr.p-south-1.amazonaws.com/commitservice:latest
+          ports:
+            - containerPort: 80

@@ -1,9 +1,11 @@
 {
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.421.0",
-    "@aws-sdk/client-secrets-manager": "^3.421.0",
+    "@aws-sdk/client-dynamodb": "^3.425.0",
+    "@aws-sdk/client-secrets-manager": "^3.425.0",
+    "@octokit/rest": "^20.0.2",
     "aws-sdk": "^2.1467.0",
     "axios": "^1.5.1",
-    "node": "^20.7.0"
+    "node": "^20.7.0",
+    "octokit": "^3.1.1"
   }
 }

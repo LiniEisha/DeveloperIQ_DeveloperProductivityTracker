@@ -1,1 +1,8 @@
 /commitService/node_modules/
+/issueService/node_modules/
+/prService/node_modules/
+
+
+/commitService/token.txt/
+/issueService/token.txt/
+/prService/token.txt/

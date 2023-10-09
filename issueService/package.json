@@ -1,0 +1,19 @@
+{
+  "name": "issueservice",
+  "version": "1.0.0",
+  "description": "",
+  "main": "issueService.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.425.0",
+    "aws-sdk": "^2.1467.0",
+    "axios": "^1.5.1",
+    "install": "^0.13.0",
+    "npm": "^10.2.0"
+  }
+}

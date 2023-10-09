@@ -1,88 +1,116 @@
 const axios = require("axios");
 const AWS = require("aws-sdk");
-const getCommint = require("./getCommit");
-// Replace v2 imports with v3 imports
-const { DynamoDB } = require("@aws-sdk/client-dynamodb");
-const { SecretsManager } = require("@aws-sdk/client-secrets-manager");
+const {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+  fromIni,
+} = require("@aws-sdk/client-secrets-manager");
+const { SharedIniFileCredentials } = require("aws-sdk");
+const Octokit = require("@octokit/rest");
 
-// import { getGhToken } from "./getCommit";
+const secret_name = "GitToken";
+const secretsManagerClient = new SecretsManagerClient({
+  region: "ap-south-1",
+});
 
-const username = "LiniEisha";
-//const token = "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";
+const dynamodb = new AWS.DynamoDB({ region: "ap-south-1" });
 
-async function main() {
-  const token = await getCommit.getGhToken();
-  console.log(ghToken);
-  const url = `https://api.github.com/users/${username}/events`;
+// const octokit = new Octokit({
+//   auth: token,
+// });
 
-  axios
-    .get(url, { headers: { Authorization: `token ${token}` } })
-    .then((response) => {
-      const events = response.data;
-      const commits = [];
-      const region = "ap-south-1";
-      const dynamodb = new AWS.DynamoDB({ region });
-      const table_name = "aecs_commits";
-      const table = dynamodb.Table(table_name);
-
-      let maxId = getCommint.getMaxCommitId();
-
-      for (const event of events) {
-        if (event.type === "PushEvent") {
-          for (const commit of event.payload.commits.slice(0, 15)) {
-            console.log(commit);
-            commits.push(commit.url);
-
-            table.putItem(
-              {
-                TableName: table_name,
-                Item: {
-                  commitId: { N: maxId.toString() },
-                  gh_username: { S: username },
-                  commit_url: { S: commit.url },
-                },
-              },
-              (err, data) => {
-                if (err) {
-                  console.error("Error putting item:", err);
-                } else {
-                  console.log("PutItem succeeded:", data);
-                }
-              }
-            );
-            maxId++;
-          }
-        }
-      }
-    })
-    .catch((error) => {
-      console.error(`Error: ${error}`);
+async function getGitHubToken() {
+  try {
+    // Load AWS credentials from the shared AWS credentials file (typically located at ~/.aws/credentials)
+    const awsCredentials = new SharedIniFileCredentials();
+    // Create AWS SDK SecretsManagerClient using the loaded credentials
+    const secretsManagerClient = new SecretsManagerClient({
+      region: "ap-south-1",
+      credentials: awsCredentials,
     });
+    const response = await secretsManagerClient.send(
+      new GetSecretValueCommand({
+        SecretId: secret_name,
+        VersionStage: "AWSCURRENT", // VersionStage defaults to AWSCURRENT if unspecified
+      })
+    );
+    return JSON.parse(response.SecretString).github_token;
+  } catch (error) {
+    console.error(
+      "Error fetching GitHub token from AWS Secrets Manager:",
+      error
+    );
+    throw error;
+  }
+
+  let response;
+
+  // try {
+  //   response = await secretsManagerClient.send(
+  //     new GetSecretValueCommand({
+  //       SecretId: secret_name,
+  //       VersionStage: "AWSCURRENT", // VersionStage defaults to AWSCURRENT if unspecified
+  //     })
+  //   );
+  // } catch (error) {
+  //   console.error(
+  //     "Error fetching GitHub token from AWS Secrets Manager:",
+  //     error
+  //   );
+  //   throw error;
+  // }
+
+  // const secret = response.SecretString;
 }
 
-// Sample code to fetch the number of commits for a developer using the GitHub API
+async function getGitHubCommitCount() {
+  try {
+    //const token = await getGitHubToken();
+    const token = "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";
 
-// const axios = require("axios");
+    //const token = "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";
 
-// async function getCommits(username, repository) {
-//   try {
-//     const response = await axios.get(
-//       `https://api.github.com/repos/${username}/${repository}/commits`
-//     );
-//     const commitCount = response.data.length;
-//     return commitCount;
-//   } catch (error) {
-//     throw error;
-//   }
-// }
+    const username = "LiniEisha";
+    console.log("GitHub Token:", token);
+    const response = await axios.get(
+      `https://api.github.com/users/${username}/events`,
+      {
+        headers: {
+          Authorization: `token ${token || ""}`,
+        },
+      }
+    );
 
-// // Usage example
-// const username = "LiniEisha";
-// const repository = "procsupport-api";
-// getCommits(username, repository)
-//   .then((commitCount) => {
-//     console.log(`${username} has ${commitCount} commits.`);
-//   })
-//   .catch((error) => {
-//     console.error("Error:", error.message);
-//   });
+    console.log("for loop starting");
+    let commitCount = 0;
+
+    for (const event of response.data) {
+      const repoResponse = await axios.get(event.repo.url + "/commits", {
+        headers: {
+          Authorization: `token ${token || ""}`,
+        },
+      });
+
+      commitCount += repoResponse.data.length;
+    }
+
+    console.log(`Total commits for user '${username}': ${commitCount}`);
+
+    const params = {
+      TableName: "aecs_commits", // Replace with your DynamoDB table name
+      Item: {
+        username: { S: username },
+        commitCount: { N: commitCount.toString() },
+      },
+    };
+
+    await dynamodb.putItem(params).promise();
+
+    console.log(`Commit count for user '${username}' stored in DynamoDB.`);
+  } catch (error) {
+    console.error("Error fetching GitHub commit count:", error);
+  }
+}
+
+// Usage
+getGitHubCommitCount();
